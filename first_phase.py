@@ -3,36 +3,69 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import nltk
 import operator
+import xml.etree.ElementTree as ET
+from nltk.corpus import stopwords
+
+# path = '/Users/ozge/Downloads/semeval2017_pun_task/data/trial/subtask1-homographic-trial.xml'
+# takes path and returns list of sentences.
+def read_data(path):
+    result = list()
+
+    tree = ET.parse(path)
+    root = tree.getroot()
+
+    for text in root:
+        sentence = ''
+
+        for word in text:
+            sentence += ' ' + word.text
+
+        result.append(sentence.strip())
+
+    return result
+
+def match(word_tag):
+    result = word_tag[0]
+    result += "|VERB" if word_tag[1].startswith("VB") else "|NOUN"
+    return result
 
 # takes splitted list of values
 # returns matched words.
 def find_words(sentence):
     result = list()
-    print nltk.pos_tag(sentence)
 
-    for pair in nltk.pos_tag(sentence):
-        if pair[1].startswith("N"):
-            result.append(pair[0] + "|NOUN")
-        elif  pair[1].startswith("VB"):
-            result.append(pair[0] + "|VERB")
+    for word_tag in sentence:
+        print word_tag
+        if word_tag[1].startswith("N") or word_tag[1].startswith("VB"):
+            result.append(match(word_tag))
 
     return result
 
 
-def find_pair(words):
+def find_pair(sentence1, sentence2):
     similarities = {}
-    for i in range(len(words)):
-        for word in words[i+1:]:
-            key = words[i]
-            freq, query_vector1 = model[unicode(key, "utf-8")]
+    for word in sentence1:
+        for other_word in sentence2:
+            freq, vector1 = model[unicode(word, "utf-8")]
+            #print "word - freq", word, freq
+            freq, vector2 = model[unicode(other_word, "utf-8")]
+            #print "word - freq", other_word, freq
 
-            key1 = word
-            freq, query_vector2 = model[unicode(key1, "utf-8")]
-            similarities[(words[i], word)] = cosine_similarity(np.asarray(query_vector1).reshape(1,-1), np.asarray(query_vector2).reshape(1,-1))
+            similarities[(word, other_word)] = cosine_similarity(np.asarray(vector1).reshape(1, -1),
+                                                               np.asarray(vector2).reshape(1, -1))
 
     return sorted(similarities.items(), key=operator.itemgetter(1), reverse=True)
 
+
 model = sense2vec.load()
-words = find_words("I used to be a banker, I lost interest.".split())
-print words
-print find_pair(words)
+
+print read_data('/Users/ozge/Downloads/semeval2017_pun_task/data/trial/subtask1-homographic-trial.xml')
+
+
+# test for find_pair(sentence1, sentence2)
+
+sentence1 = find_words([('used', 'VBD'), ('banker', 'NN')])
+sentence2 = find_words([('lost', 'VBD'), ('interest', 'NN')])
+
+
+print find_pair(sentence1, sentence2)
