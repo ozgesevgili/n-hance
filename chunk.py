@@ -2,6 +2,7 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk import RegexpParser
+from nltk.tag.stanford import NERTagger
 
 def filter(tokens):
     """
