@@ -1,25 +1,44 @@
 from pywsd.lesk import simple_lesk
+from pywsd.lesk import cosine_lesk
+from pywsd.lesk import adapted_lesk
+from pywsd.similarity import max_similarity
 from nltk import word_tokenize
-
+from pprint import pprint
 
 def find_pun(sent):
     max_score_word = ""
-    current_max = 0
     for word in word_tokenize(sent):
-        synnets = simple_lesk(sent,
+        sense_list = simple_lesk(
+         sent,
          word,
-         nbest=True,
-         keepscore=True
+         nbest=True
         )
-        if synnets is None:
+        if sense_list is None or len(sense_list) == 1:
             continue
-        #print word, synnets
-        max_score = max([e[0] for e in synnets])
-        if max_score >= current_max:
-            current_max = max_score
-            max_score_word = word
-    if max_score == 2:
-        return max_score_word
+
+        print word
+
+        sense_names = [e.name() for e in sense_list[:2]]
+        for sense in sense_list[:2]:
+            for lemma in sense.lemma_names():
+                if lemma == word:
+                    continue
+                lemma_sense_list = simple_lesk(
+                 sent.replace(word, lemma),
+                 word,
+                 nbest=True,
+                )
+                if len(lemma_sense_list) < 2:
+                    break
+                lemma_sense_names = [e.name() for e in lemma_sense_list]
+
+                inersect = [e for e in lemma_sense_list if e in sense_list]
+                #print inersect
+                if len(inersect) == 1:
+                    print "Result:", word
+                break
+
+        print "----------"
     return None
 
 for line in open("../puns_small.txt"):
