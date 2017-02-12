@@ -3,7 +3,7 @@ from nltk.corpus import stopwords
 import sense2vec
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
-from pywsd.lesk import simple_lesk
+from pywsd.lesk import simple_lesk, adapted_lesk
 from nltk.corpus import brown
 from gensim.models import Word2Vec
 
@@ -131,9 +131,41 @@ def create_pair(sentences):
 
     return pair_list
 
+def find_most_similar_sense(word_tag1, word_tag2, senselist):
+    word = word_tag1.split("|")[0]
+    tag = word_tag1.split("|")[1]
+
+    max = 0
+    result_sense = ""
+
+    for sense in senselist:
+        #print sense.name()
+        #print sense.definition()
+        #print sense.lemma_names()
+
+        for lemma in sense.lemma_names():
+            if lemma == word:
+                continue
+            lemma_tag = lemma + "|" + tag
+
+            try:
+                freq, vector1 = model[unicode(word_tag2, "utf-8")]
+                freq, vector2 = model[unicode(lemma_tag)]
+            except:
+                continue
+            sim = cosine_similarity(np.asarray(vector1).reshape(1, -1), np.asarray(vector2).reshape(1, -1))
+
+            if sim > max:
+                result_sense = sense.name()
+                max = sim
+
+            break
+
+    return (result_sense, max)
+
 
 # assumption, second sentence has pun!
-def find_pun(sent, pair_list):
+def find_pun(sent, pair_list, treshold=0.2):
 
     for pair in pair_list:
         word_tag1 = pair[0]
@@ -142,9 +174,10 @@ def find_pun(sent, pair_list):
         freq, vector1 = model[unicode(word_tag1)]
         freq, vector2 = model[unicode(word_tag2)]
 
-        sim = cosine_similarity(np.asarray(vector1).reshape(1, -1),
+        first_sim = cosine_similarity(np.asarray(vector1).reshape(1, -1),
                                 np.asarray(vector2).reshape(1, -1))
-        print "before", pair, sim
+
+        print "before", pair, first_sim
 
 
         word = word_tag2.split("|")[0]
@@ -168,22 +201,34 @@ def find_pun(sent, pair_list):
                     freq, vector1 = model[unicode(lemma_tag)]
                     freq, vector2 = model[unicode(word_tag1)]
                 except:
-                    brown_word2vec = Word2Vec(brown.sents(), size=128)
-                    vector1 = brown_word2vec[lemma_tag]
-                    vector2 = brown_word2vec[word_tag1]
+                    try:
+                        brown_word2vec = Word2Vec(brown.sents(), size=128)
+                        vector1 = brown_word2vec[lemma_tag]
+                        vector2 = brown_word2vec[word_tag1]
+                    except:
+                        #TODO: try with new Word2vec
+                        continue
 
                 sim = cosine_similarity(np.asarray(vector1).reshape(1, -1),
                                                              np.asarray(vector2).reshape(1, -1))
+
                 print word_tag1, lemma_tag, sim
                 print "--------------------"
+                # TODO: find max distance, not first one.
+                if abs(first_sim - sim) > treshold:
+                    other_sense, sim = find_most_similar_sense(word_tag2, word_tag1, sense_list)
+                    return (pair, word_tag2, sense.name(), other_sense)
                 break
     return None
 
 
 if __name__ == "__main__":
     #sentence = "The bee got married, he found his honey."
-    sentence = "I used to be banker, I lost interest"
+    #sentence = "I used to be banker, I lost interest"
     #sentence = "Quick dive into those reeds! 'Tom rushed'"
+    sentence = "Cinderella was thrown off the basketball team because she ran away from the ball."
+    sentence = "Old swords never rust, they just lose their temper."
+
     sentences = extract_clause(sentence)
     print sentences
 
@@ -191,5 +236,5 @@ if __name__ == "__main__":
     print pair_list
 
     model = sense2vec.load()
-    find_pun(sentence, pair_list)
+    print find_pun(sentence, pair_list)
 
