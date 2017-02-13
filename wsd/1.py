@@ -3,10 +3,12 @@ from pywsd.lesk import cosine_lesk
 from pywsd.lesk import adapted_lesk
 from pywsd.similarity import max_similarity
 from nltk import word_tokenize
+from nltk.wsd import lesk
 from pprint import pprint
 
+sense_list = simple_lesk("I used to be banker, I lost interest", "I", nbest=True)
+
 def find_pun(sent):
-    max_score_word = ""
     for word in word_tokenize(sent):
         sense_list = simple_lesk(
          sent,
@@ -16,25 +18,22 @@ def find_pun(sent):
         if sense_list is None or len(sense_list) == 1:
             continue
 
-        print word
-
         sense_names = [e.name() for e in sense_list[:2]]
-        for sense in sense_list[:2]:
+        for sense in sense_list[:1]:
             for lemma in sense.lemma_names():
                 if lemma == word:
                     continue
                 lemma_sense_list = simple_lesk(
                  sent.replace(word, lemma),
-                 word,
+                 lemma,
                  nbest=True,
-                )
-                if len(lemma_sense_list) < 2:
-                    break
+                )[0]
+
                 lemma_sense_names = [e.name() for e in lemma_sense_list]
 
-                inersect = [e for e in lemma_sense_list if e in sense_list]
+                inersect = [e for e in lemma_sense_names if e in sense_names]
                 #print inersect
-                if len(inersect) == 1:
+                if len(inersect) > 1:
                     print "Result:", word
                 break
 
